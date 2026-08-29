@@ -1,0 +1,27 @@
+GLOBAL {
+	inputname	"apple1_hello.bin";
+	startaddr	$0280;
+	cpu		"6502";
+	comments	4;
+};
+
+LABEL { name "done"; addr $028D; };
+LABEL { name "text"; addr $0290; };
+LABEL { name "printnext"; addr $0282; };
+LABEL { name "_start"; addr $0280; };
+
+# This files feeds the disassembler with essential information.
+# In this example of `apple1_hello` we indicate the range of the
+# code and the table so disassembly will be perfect.
+# A `*.map` file will tell you all the ranges you need. In case of 
+# disassembling an unknown program, you can already put the list of
+# ROM addresses and everything you know about it in this file and it
+# will make the disassembly more fun.
+# In other words: away with the garbage...
+#
+# A table that should not be handled as code, a known address that 
+# will make it readable from the start. Imagine you put the 
+# PIA/VIA/UART/TIM addresses and vectors here...
+
+RANGE { start $0290; end $029D; type ByteTable; name "text"; };
+LABEL { name "CharOut"; addr $FFEF; };
