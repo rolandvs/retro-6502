@@ -1,0 +1,8 @@
+al 00029E .__BSS_LOAD__
+al 00029E .__BSS_RUN__
+al 000000 .__BSS_SIZE__
+al 000280 .__LOAD__
+al 00028D .done
+al 000290 .text
+al 000282 .printnext
+al 000280 ._start

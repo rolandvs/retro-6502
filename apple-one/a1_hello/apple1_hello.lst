@@ -1,0 +1,48 @@
+ca65 V2.18 - N/A
+Main file   : apple1_hello.s
+Current file: apple1_hello.s
+
+000000r 1               ; ------------------------------------------------------
+000000r 1               ; Apple One - Hello World Example
+000000r 1               ;
+000000r 1               ; Originally written by Hein Pragt in 2023. It was used
+000000r 1               ; as an example for his 6502 simulator.
+000000r 1               ; ------------------------------------------------------
+000000r 1               ; @file 	apple1_hello
+000000r 1               ; @brief 	use the cc65 tool chain to create 6502 binaries
+000000r 1               ; @author 	(c)2026 by Roland van Straten (github.com/rolandvs)
+000000r 1               ; @license 	MIT License
+000000r 1               ;
+000000r 1               ;
+000000r 1               ; To see what changes were needed to be able to use the
+000000r 1               ; cc65 tool chain this sample was modified.
+000000r 1               ;
+000000r 1               ; cc65 looks a bit like the setup of gcc tool chain.
+000000r 1               ; A little more work, but better in the long run.
+000000r 1               ;
+000000r 1               ;
+000000r 1               ; select the right cpu
+000000r 1               	.setcpu 	"6502"	; Apple-1 uses a standard 6502
+000000r 1               
+000000r 1               CharOut 	= 	$FFEF 	; WozMon monitor ECHO
+000000r 1               
+000000r 1               	.segment 	"CODE"
+000000r 1               	.org 	LOAD	; set the origin inherited from Makefile
+000280  1               ;	.export 	_start	; set in the *.cfg linker file
+000280  1               
+000280  1  A2 00        _start:	ldx	#0
+000282  1  BD 90 02     printnext:	lda 	text,x	; get character from string
+000285  1  F0 06        	beq 	done	; untilf we read a NULL
+000287  1  20 EF FF     	jsr 	CharOut	; character to output
+00028A  1  E8           	inx		; next char
+00028B  1  D0 F5        	bne 	printnext	; repeat (max 255 times)
+00028D  1               ;
+00028D  1  4C 8D 02     done:	jmp  	done
+000290  1               
+000290  1               ; zero terminated string
+000290  1  48 65 6C 6C  text: 	.byte 	"Hello World!",$8D,$00
+000294  1  6F 20 57 6F  
+000298  1  72 6C 64 21  
+00029C  1  8D 00        
+00029E  1               
+00029E  1               
