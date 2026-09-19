@@ -10,7 +10,7 @@ The use of `$C000` conflicts with the cassette recorder interface. To make it ev
 
 ![xx30](/apple-one/a1_beep/doc/c030_decoder.png)
 
-# PEEK(49200)
+## PEEK(49200)
 
 The code for the beep comes straight from the Apple II Monitor.
 
@@ -40,7 +40,7 @@ FCB1: D0 F6            BNE WAIT2
 FCB3: 60               RTS
 ```
 
-# Beeeeeeep
+## Beeeeeeep
 
 ```
 0300: A9 00     LDA #$00
@@ -56,9 +56,7 @@ FCB3: 60               RTS
 0311: 4C 02 03  JMP $0302     ; 3
 ```
 
-
-
-# Relocated for APPLE-ONE
+## Relocated for APPLE-ONE
 
 The only absolute addresses are the two **JSR WAIT** calls. Woz Mon's `R` command jumps to the code rather than calling it, so a RTS would crash, therefore replaced by `JMP $FF1F` **GETLINE**.
 
@@ -67,8 +65,6 @@ A 1MHz clock would put the pitch about 2% lower. That's inaudible for a beep.
 In this case the address for the **SPKR** is `$C000` instead of `$C030`.
 
 For quick testing:
-
-
 
 ```
 # ported BELL
@@ -85,3 +81,7 @@ For quick testing:
 
 300R
 ```
+
+## Hardware in action
+
+![HW](/apple-one/a1_beep/doc/IMG_4211.jpeg)
