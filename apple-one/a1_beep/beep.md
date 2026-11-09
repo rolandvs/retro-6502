@@ -10,7 +10,7 @@ The use of `$C000` conflicts with the cassette recorder interface. To make it ev
 
 ![xx30](/apple-one/a1_beep/doc/c030_decoder.png)
 
-## PEEK(49200)
+## PEEK(49200) OR PEEK(-16384)
 
 The code for the beep comes straight from the Apple II Monitor.
 
