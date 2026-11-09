@@ -25,6 +25,8 @@ $ /opt/homebrew/Cellar/cc65/2.19/share/cc65/lib
 
 ## Prerequisites
 
+### BREW
+
 ```bash
 # python3 must be installed, probably using .venv on MacOSX
 brew install python3
@@ -32,6 +34,11 @@ brew install python3
 brew install cc65
 # add the srecord stuff
 brew install srecord
+```
+
+### MACPORTS 
+
+```bash
 ```
 
 ## Sample Code
@@ -50,18 +57,16 @@ I was looking for some sample code and found a version of "Hello World" for the 
 ; @author 	(c)2026 by Roland van Straten (github.com/rolandvs)
 ; @license 	MIT License
 ;
-;
 ; To see what changes were needed to be able to use the
 ; cc65 tool chain this sample was modified.
 ;
 ; cc65 looks a bit like the setup of gcc tool chain.
 ; A little more work, but better in the long run.
 ;
-;
 ; select the right cpu
 	.setcpu 	"6502"	; Apple-1 uses a standard 6502
 
-CharOut 	= 	$FFEF 	; WozMon monitor ECHO
+ECHO 	= 	$FFEF 	; WozMon monitor ECHO
 
 	.segment 	"CODE"
 	.org 	LOAD	; set the origin inherited from Makefile
@@ -69,7 +74,7 @@ CharOut 	= 	$FFEF 	; WozMon monitor ECHO
 _start:	ldx	#0
 printnext:	lda 	text,x	; get character from string
 	beq 	done	; untilf we read a NULL	
-	jsr 	CharOut	; character to output 
+	jsr 	ECHO	; character to output 
 	inx		; next char
 	bne 	printnext	; repeat (max 255 times) 
 ;
@@ -77,7 +82,6 @@ done:	jmp  	done
 
 ; zero terminated string
 text: 	.byte 	"Hello World!",$8D,$00
-
 ```
 
 ### Making it work
@@ -87,92 +91,52 @@ I got a bit too enthusiastic and created a `Makefile` that generates the program
 The best thing is to download the project with all the files in it and do:
 
 ```bash
-$ make clean && make && make info && make dis
-$ cat apple1_hello.dis
+make clean && make NAME=apple1_hello ORIGIN=C800 MONLOAD=7800 && make dis
+rm -rf build
+ca65 --cpu 6502 -g --list-bytes 0 -D LOAD='$C800' -l build/apple1_hello.lst -o build/apple1_hello.o apple1_hello.s
+ld65 -C apple1.cfg -D __LOAD__='$C800' -m build/apple1_hello.map -Ln build/apple1_hello.lbl -o build/apple1_hello.bin build/apple1_hello.o
+  SREC  build/apple1_hello.hex
+  SREC  build/apple1_hello.s19
+  WOZ   build/apple1_hello.woz
+  LIST  build/apple1_hello.abs.lst
+
+  ---- apple1_hello ----
+  run    $C800-$C81D   (ORIGIN)
+  load   $7800-$781D   (MONLOAD, .woz)
+  size   30 bytes = $001E
+  segments:
+    CODE       $C800-$C80F     16 bytes
+    RODATA     $C810-$C81D     14 bytes
+  start  C800R on the Woz Monitor
+
+wrote build/apple1_hello.info
+da65 -i build/apple1_hello.info -o build/apple1_hello.dis
 ```
 
 You can also enter `make help` for info.
 
-```
- make help
+```bash
+make help
 targets:
-  info       generate da65 info file from linker labels
+  all        build everything + report
+  report     show addresses, size and segments of the last build
+  abslist    listing with absolute addresses
+  info       generate da65 info file: labels, ROM symbols, data ranges
   dis        disassemble the linked binary using the info file
+  dump       dump the object file
+  clean      remove the build directory
   help       show this help
 
-variables (override: make VAR=value):
+variables (override: make VAR=value), current values:
+  NAME     apple1   source apple1.s, outputs build/apple1.*
+  ORIGIN   0280     run address, plain hex (no $ or 0x)
+  MONLOAD  0280     load address of the .woz file, plain hex
+  CPU      6502
+  CFG      apple1.cfg
+  B        build       build directory
 
-example:  make clean && make ORIGIN=0300 && make info && make dis
+example:  make clean && make ORIGIN=C800 MONLOAD=7800 && make dis
 ```
-
-
-#### S19, Intel, BIN and WOZ
-
-- Motorola S19
-
-```
-S00F00006170706C65315F68656C6C6F3A
-S1210280A200BD9002F00620EFFFE8D0F54C8D0248656C6C6F20576F726C64218D0015
-S90302807A
-```
-
-- Intel Hex
-
-```
-:020000040000FA
-:1E028000A200BD9002F00620EFFFE8D0F54C8D0248656C6C6F20576F726C64218D0019
-:00000001FF
-```
-
-- WOZMON
-
-```
-$ cat apple1_hello.mon
-0280: A2 00 BD 90 02 F0 06 20
-0288: EF FF E8 D0 F5 4C 8D 02
-0290: 48 65 6C 6C 6F 20 57 6F
-0298: 72 6C 64 21 8D 00
-```
-
-- BIN
-
-```
-$ xxd apple1_hello.bin
-00000000: a200 bd90 02f0 0620 efff e8d0 f54c 8d02  ....... .....L..
-00000010: 4865 6c6c 6f20 576f 726c 6421 8d00       Hello World!..
-```
-
-#### Disassembly Output
-
-No comments needed, but the circle is round. However, there is a file called `apple1_hello.ranges`. This is a file typed by hand. It is to improve the readability and function of the disassembler. See more info in the file or the documentation of **cc65**.
-
-
-```
-; da65 V2.18 - N/A
-; Created:    2026-08-29 23:21:03
-; Input file: apple1_hello.bin
-; Page:       1
-
-
-        .setcpu "6502"
-
-; ----------------------------------------------------------------------------
-CharOut         := $FFEF
-; ----------------------------------------------------------------------------
-_start: ldx     #$00                            ; 0280 A2 00                    ..
-printnext:
-        lda     text,x                          ; 0282 BD 90 02                 ...
-        beq     done                            ; 0285 F0 06                    ..
-        jsr     CharOut                         ; 0287 20 EF FF                  ..
-        inx                                     ; 028A E8                       .
-        bne     printnext                       ; 028B D0 F5                    ..
-done:   jmp     done                            ; 028D 4C 8D 02                 L..
-
-; ----------------------------------------------------------------------------
-text:   .byte   $48,$65,$6C,$6C,$6F,$20,$57,$6F ; 0290 48 65 6C 6C 6F 20 57 6F  Hello Wo
-        .byte   $72,$6C,$64,$21,$8D,$00         ; 0298 72 6C 64 21 8D 00        rld!..
-```
-
 
 # Disclaimer
 

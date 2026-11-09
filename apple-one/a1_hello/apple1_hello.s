@@ -20,21 +20,24 @@
 ; select the right cpu
 	.setcpu 	"6502"	; Apple-1 uses a standard 6502
 
-CharOut 	= 	$FFEF 	; WozMon monitor ECHO
+	.include	"wozmon.inc"
+
+;CharOut 	= 	$FFEF 	; WozMon monitor ECHO
 
 	.segment 	"CODE"
-	.org 	LOAD	; set the origin inherited from Makefile
+;	.org 	LOAD	; set the origin inherited from Makefile
 ;	.export 	_start	; set in the *.cfg linker file
 
 _start:	ldx	#0
 printnext:	lda 	text,x	; get character from string
 	beq 	done	; untilf we read a NULL	
-	jsr 	CharOut	; character to output 
+	jsr 	ECHO	; character to output 
 	inx		; next char
 	bne 	printnext	; repeat (max 255 times) 
 ;
 done:	jmp  	done	
 
 ; zero terminated string
+	.segment 	"RODATA"	; only for the disassmbler
 text: 	.byte 	"Hello World!",$8D,$00
 

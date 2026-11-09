@@ -1,0 +1,128 @@
+NAME    = apple1_hello
+CPU     = 6502
+CFG     = apple1.cfg
+
+# ---- addresses: plain hex, no prefix (C800, 0280) ----
+# ORIGIN   run address: where the code is assembled/linked to run
+# MONLOAD  address the .woz file is typed into (default: ORIGIN)
+ORIGIN  = 0280
+MONLOAD =
+
+# normalise: $(value ...) reads the raw text, so make never expands "$C800"
+# into "$(C)800"; a $ or 0x prefix is stripped, then 1-4 hex digits required
+hexaddr = $(strip $(patsubst 0x%,%,$(patsubst 0X%,%,$(subst $$,,$(strip $(value $(1)))))))
+ORG    := $(call hexaddr,ORIGIN)
+MON    := $(or $(call hexaddr,MONLOAD),$(ORG))
+$(foreach v,ORG MON,$(if $(shell echo '$($(v))' | grep -Eqx '[0-9A-Fa-f]{1,4}' || echo bad),\
+  $(error $(if $(filter ORG,$(v)),ORIGIN,MONLOAD)='$($(v))' must be 1-4 hex digits without prefix, e.g. C800)))
+
+# derived forms -- the only places a prefix appears
+# (comments on their own line: a trailing "# ..." would leave spaces in the value)
+# LOAD    0xC800    for shell tools (srec_cat, printf)
+# MONHEX  0x7800    for the python .woz generator
+# ASADDR  '$C800'   for ca65 / ld65 -D
+LOAD    = 0x$(ORG)
+MONHEX  = 0x$(MON)
+ASADDR  = '$$$(ORG)'
+
+# all generated files go here -- add "build/" to .gitignore
+B       = build
+OUT     = $(B)/$(NAME)
+
+AS      = ca65
+LD      = ld65
+DA      = da65
+SREC    = srec_cat
+
+# --list-bytes 0             removes truncating after 12 bytes in listing
+# -D LOAD=$(ASADDR)          sets the ORIGIN address in the ASSEMBLER
+#                            the 'normal' mechanism generates listings with non-resolved addresses
+ASFLAGS = --cpu $(CPU) -g --list-bytes 0 -D LOAD=$(ASADDR) -l $(OUT).lst
+# -D __LOAD__=$(ASADDR)      propagates the origin into the linker
+LDFLAGS = -C $(CFG) -D __LOAD__=$(ASADDR) -m $(OUT).map -Ln $(OUT).lbl
+
+.SUFFIXES:
+
+all: $(OUT).bin $(OUT).hex $(OUT).s19 $(OUT).woz   ## build bin, hex, s19 and woz
+
+# the build directory; "| $(B)" below = order-only: create it, but don't
+# rebuild everything just because the directory's timestamp changed
+$(B):
+	@mkdir -p $@
+
+$(OUT).o: $(NAME).s | $(B)
+	$(AS) $(ASFLAGS) -o $@ $<
+
+$(OUT).bin: $(OUT).o $(CFG)
+	$(LD) $(LDFLAGS) -o $@ $<
+
+$(OUT).hex: $(OUT).bin
+	@echo "  SREC  $@"
+	@$(SREC) $< -binary -offset $(LOAD) -o $@ -intel
+
+$(OUT).s19: $(OUT).bin
+	@echo "  SREC  $@"
+	@$(SREC) $< -binary -offset $(LOAD) -header "$(NAME)" \
+		-o $@ -motorola -address-length=2 \
+		--disable=data-count --execution-start-address=$(LOAD)
+
+$(OUT).woz: $(OUT).bin
+	@echo "  WOZ   $@"
+	@python3 -c "d=open('$<','rb').read(); a=$(MONHEX); \
+	print('\n'.join('%04X: %s'%(a+i,' '.join('%02X'%b for b in d[i:i+8])) \
+	for i in range(0,len(d),8)))" > $@
+
+
+# ---- da65 info file, generated from the linker's label output ----
+# $(NAME).ranges is hand-written source, so it stays next to $(NAME).s
+info: $(OUT).info    ## generate da65 info file from linker labels
+
+$(OUT).info: $(OUT).bin
+	@printf 'GLOBAL {\n' > $@
+	@printf '\tinputname\t"%s";\n'   $(OUT).bin  >> $@
+	@printf '\tstartaddr\t$$%s;\n'   $(ORG)      >> $@
+	@printf '\tcpu\t\t"%s";\n'       $(CPU)      >> $@
+	@printf '\tcomments\t4;\n};\n\n' >> $@
+	@awk '$$1=="al" && substr($$3,2,2)!="__" { \
+		printf "LABEL { name \"%s\"; addr $$%s; };\n", \
+		       substr($$3,2), substr($$2,3) }' $(OUT).lbl >> $@
+	@printf '\n' >> $@
+	@if [ -f $(NAME).ranges ]; then \
+		cat $(NAME).ranges >> $@; \
+	else \
+		last=$$(printf '%04X' $$(( $(LOAD) + $$(wc -c < $(OUT).bin) - 1 ))); \
+		printf '# no %s.ranges file -- create one with RANGE blocks for data.\n' $(NAME) >> $@; \
+		printf '# binary spans $$%s..$$%s\n' $(ORG) "$$last" >> $@; \
+		printf '# RANGE { start $$0290; end $$%s; type ByteTable; name "text"; };\n' "$$last" >> $@; \
+	fi
+	@echo "wrote $@ -- check the RANGE blocks before running 'make dis'"
+
+
+dis: $(OUT).dis      ## disassemble the linked binary using the info file
+
+$(OUT).dis: $(OUT).bin $(OUT).info
+	$(DA) -i $(OUT).info -o $@
+
+dump: $(OUT).o       ## dump the object file
+	od65 --dump-all $<
+
+clean:               ## remove the build directory
+	rm -rf $(B)
+
+help:                ## show this help
+	@echo "targets:"
+	@grep -E '^[a-zA-Z_.-]+:.*## ' $(MAKEFILE_LIST) | \
+		awk 'BEGIN{FS=":.*## "}{printf "  %-10s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "variables (override: make VAR=value), current values:"
+	@echo "  NAME     $(NAME)     source $(NAME).s, outputs $(OUT).*"
+	@echo "  ORIGIN   $(ORG)     run address, plain hex (no \$$ or 0x)"
+	@echo "  MONLOAD  $(MON)     load address of the .woz file, plain hex"
+	@echo "  CPU      $(CPU)"
+	@echo "  CFG      $(CFG)"
+	@echo "  B        $(B)       build directory"
+	@echo ""
+	@echo "example:  make clean && make ORIGIN=C800 MONLOAD=7800 && make dis"
+
+
+.PHONY: all info dis dump clean help
