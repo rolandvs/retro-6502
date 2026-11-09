@@ -1,0 +1,40 @@
+0300  08         php             ; 3  caller's flags
+0301  85 F1      sta SV_A        ; 3
+0303  86 F2      stx SV_X        ; 3
+0305  84 F3      sty SV_Y        ; 3
+0307  68         pla             ; 4  P -> A (flags restored by PLP at exit)
+0308  85 F4      sta SV_P        ; 3
+030A  78         sei             ; 2  no IRQs during the bitstream
+030B  A0 00      ldy #0          ; 2
+030D  EA         loop:   nop             ; 2
+030E  EA         nop             ; 2
+030F  EA         nop             ; 2
+0310  B9 00 04   lda G,y         ; 4
+0313  8D 00 C6   sta WS          ; 4  W1 green   (W3->W1 = 3+6+4+4 = 17)
+0316  B9 00 05   lda R,y         ; 4
+0319  EA         nop             ; 2
+031A  EA         nop             ; 2
+031B  EA         nop             ; 2
+031C  EA         nop             ; 2
+031D  8D 00 C6   sta WS          ; 4  W2 red     (W1->W2 = 16)
+0320  B9 00 06   lda B,y         ; 4
+0323  C8         iny             ; 2
+0324  EA         nop             ; 2
+0325  EA         nop             ; 2
+0326  C4 F0      cpy WS_N        ; 3
+0328  8D 00 C6   sta WS          ; 4  W3 blue    (W2->W3 = 17)
+032B  D0 E0      bne loop        ; 3 taken / 2 on exit
+032D  A5 F4      lda SV_P        ; 3
+032F  29 04      and #$04        ; 2  caller's I flag
+0331  D0 01      bne irqoff      ; 2/3
+0333  58         cli             ; 2  IRQs here only lengthen the latch: harmless
+0334  A2 40      irqoff: ldx #LATCH_N    ; 2
+0336  CA         dly:    dex             ; 2
+0337  D0 FD      bne dly         ; 3 (2 on exit)
+0339  A5 F4      lda SV_P        ; 3
+033B  48         pha             ; 3  P back on stack for PLP
+033C  A5 F1      lda SV_A        ; 3
+033E  A6 F2      ldx SV_X        ; 3
+0340  A4 F3      ldy SV_Y        ; 3
+0342  28         plp             ; 4  all flags incl. I, after the loads
+0343  60         rts             ; 6
